@@ -1,6 +1,8 @@
 package csku.atm.service;
 
+import csku.atm.data.CustomerRepository;
 import org.mindrot.jbcrypt.BCrypt;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.stereotype.Service;
 import csku.atm.model.Customer;
 import javax.annotation.PostConstruct;
@@ -9,39 +11,38 @@ import java.util.List;
 
 @Service
 public class CustomerService {
+    private CustomerRepository repository;
 
-    private ArrayList<Customer> customerList = new ArrayList<>();
+    public CustomerService(CustomerRepository repository) {
+        this.repository = repository;
+    }
 
     public void createCustomer(Customer customer) {
         String hashPin = hash(customer.getPin());
         customer.setPin(hashPin);
-        customerList.add(customer);
-    }
-
-    public List<Customer> getCustomers() {
-        return new ArrayList<>(customerList);
+        repository.save(customer);
     }
 
     public Customer findCustomer(int id) {
-        for (Customer customer : customerList) {
-            if (customer.getId() == id)
-                return customer;
+        try {
+            return repository.findById(id);
+        } catch (EmptyResultDataAccessException e) {
+            return null;
         }
-        return null;
+    }
+
+    public List<Customer> getCustomers() {
+        return repository.findAll();
     }
 
     public Customer checkPin(Customer inputCustomer) {
-        // 1. หา customer ที่มี id ตรงกับพารามิเตอร์
         Customer storedCustomer = findCustomer(inputCustomer.getId());
 
-        // 2. ถ้ามี id ตรง ให้เช็ค pin ว่าตรงกันไหม โดยใช้ฟังก์ชันเกี่ยวกับ hash
         if (storedCustomer != null) {
-            String hashPin = storedCustomer.getPin();
-
-            if (BCrypt.checkpw(inputCustomer.getPin(), hashPin))
+            String storedPin = storedCustomer.getPin();
+            if (BCrypt.checkpw(inputCustomer.getPin(), storedPin))
                 return storedCustomer;
         }
-        // 3. ถ้าไม่ตรง ต้องคืนค่า null
         return null;
     }
 
